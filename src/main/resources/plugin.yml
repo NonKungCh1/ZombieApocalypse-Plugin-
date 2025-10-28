@@ -1,8 +1,8 @@
 name: ZombieApocalypse
-version: 1.0
+version: 1.1
 main: com.nonkungch.zombieapocalypse.ZombieApocalypse
 api-version: 1.21
-description: The complete Zombie Apocalypse plugin (Phases 1-7).
+description: The complete Zombie Apocalypse plugin (Phases 1-8).
 commands:
   cureme:
     description: Cures the player of the infection.
@@ -10,3 +10,9 @@ commands:
   safezone:
     description: Manages safe zones.
     usage: /safezone <create>
+  zinfo:
+    description: Shows your current apocalypse stats and upgrade points.
+    usage: /zinfo
+  zupgrade:
+    description: Upgrades one of your stats.
+    usage: /zupgrade <health|speed|damage|regen>
