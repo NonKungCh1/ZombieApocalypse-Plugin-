@@ -1,6 +1,12 @@
-name: RealisticFire
+name: ZombieApocalypse
 version: 1.0
-main: com.nonkungch.realisticfire.RealisticFire
-api-version: 1.21
-author: NonKungCh
-description: Makes fire sources extinguish in the rain.
+main: com.nonkungch.zombieapocalypse.ZombieApocalypse
+api-version: 1.19
+description: The complete Zombie Apocalypse plugin (Phases 1-7).
+commands:
+  cureme:
+    description: Cures the player of the infection.
+    usage: /cureme
+  safezone:
+    description: Manages safe zones.
+    usage: /safezone <create>
