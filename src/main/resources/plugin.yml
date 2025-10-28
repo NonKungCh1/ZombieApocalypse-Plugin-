@@ -1,7 +1,7 @@
 name: ZombieApocalypse
 version: 1.0
 main: com.nonkungch.zombieapocalypse.ZombieApocalypse
-api-version: 1.19
+api-version: 1.21
 description: The complete Zombie Apocalypse plugin (Phases 1-7).
 commands:
   cureme:
