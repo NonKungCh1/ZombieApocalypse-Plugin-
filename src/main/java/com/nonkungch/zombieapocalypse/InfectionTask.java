@@ -20,6 +20,7 @@ public class InfectionTask extends BukkitRunnable {
 
     @Override
     public void run() {
+        // ใช้ .keySet() เพื่อให้ลบได้ปลอดภัย
         for (UUID playerId : plugin.getInfectedPlayers().keySet()) {
             
             Player player = Bukkit.getPlayer(playerId);
@@ -39,33 +40,34 @@ public class InfectionTask extends BukkitRunnable {
 
             if (secondsElapsed >= deathTime) {
                 // Stage 4: Death
-                player.sendMessage(ChatColor.DARK_RED + "การติดเชื้อได้ครอบงำร่างกายคุณแล้ว...");
+                if (secondsElapsed == deathTime) { // (FIX F1) ส่งข้อความแค่ครั้งเดียว
+                    player.sendMessage(ChatColor.DARK_RED + "การติดเชื้อได้ครอบงำร่างกายคุณแล้ว...");
+                }
                 player.setHealth(0.0);
                 plugin.getInfectedPlayers().remove(playerId);
                 
             } else if (secondsElapsed >= stage3Time) {
                 // Stage 3: Critical
-                player.sendMessage(ChatColor.RED + "ร่างกายของคุณกำลังล้มเหลว...");
+                if (secondsElapsed == stage3Time) { // (FIX F1)
+                    player.sendMessage(ChatColor.RED + "ร่างกายของคุณกำลังล้มเหลว...");
+                }
                 player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 40, 1));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 0));
                 
             } else if (secondsElapsed >= stage2Time) {
                 // Stage 2: Worsening
-                player.sendMessage(ChatColor.GOLD + "คุณรู้สึกเจ็บปวดไปทั่วร่าง...");
+                if (secondsElapsed == stage2Time) { // (FIX F1)
+                    player.sendMessage(ChatColor.GOLD + "คุณรู้สึกเจ็บปวดไปทั่วร่าง...");
+                }
                 player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 40, 0));
                 
             } else if (secondsElapsed >= stage1Time) {
                 // Stage 1: Infected
-                player.sendMessage(ChatColor.YELLOW + "คุณรู้สึกไม่ค่อยสบายตัวและหิวโหย...");
-                player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0));
-                // --- FIX ---
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0)); // <--- แก้ไขจาก SLOW
-                // --- END FIX ---
-            } else {
-                // Incubation Period (0-60 sec)
-                if(secondsElapsed % 10 == 0) {
-                     player.sendMessage(ChatColor.GRAY + "คุณรู้สึกถึงแผลที่โดนกัด...");
+                if (secondsElapsed == stage1Time) { // (FIX F1)
+                    player.sendMessage(ChatColor.YELLOW + "คุณรู้สึกไม่ค่อยสบายตัวและหิวโหย...");
                 }
+                player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0)); // (แก้ไขแล้ว)
             }
         }
     }

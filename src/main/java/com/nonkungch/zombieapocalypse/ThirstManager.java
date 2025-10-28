@@ -3,6 +3,7 @@ package com.nonkungch.zombieapocalypse;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
+import org.bukkit.Location; // (เพิ่ม F3)
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -20,6 +21,10 @@ public class ThirstManager {
     private ZombieApocalypse plugin;
     private Map<UUID, Integer> playerThirst = new HashMap<>();
     private Map<UUID, BossBar> playerBossBars = new HashMap<>();
+    
+    // (เพิ่ม F3)
+    private Map<UUID, Location> lastKnownLocation = new HashMap<>();
+    
     private final int MAX_THIRST = 100;
     private final int MIN_THIRST = 0;
     private BukkitTask thirstTask;
@@ -34,11 +39,13 @@ public class ThirstManager {
         BossBar bossBar = Bukkit.createBossBar(ChatColor.AQUA + "ความกระหายน้ำ", BarColor.BLUE, BarStyle.SOLID);
         bossBar.addPlayer(player);
         playerBossBars.put(player.getUniqueId(), bossBar);
+        lastKnownLocation.put(player.getUniqueId(), player.getLocation()); // (เพิ่ม F3)
         updateBossBar(player);
     }
 
     public void removePlayer(Player player) {
         playerThirst.remove(player.getUniqueId());
+        lastKnownLocation.remove(player.getUniqueId()); // (เพิ่ม F3)
         BossBar bossBar = playerBossBars.remove(player.getUniqueId());
         if (bossBar != null) {
             bossBar.removeAll();
@@ -96,30 +103,40 @@ public class ThirstManager {
         updateBossBar(player);
     }
 
-    // --- Main Thirst Task ---
+    // --- Main Thirst Task (แก้ไข F3) ---
     public void startThirstTask() {
-        // Runs every 100 ticks (5 seconds)
+        // (FIX F3) เปลี่ยนเป็น 200L (10 วินาที)
         thirstTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
                     continue;
                 }
-                
-                // Base thirst decrease
-                decreaseThirst(player, 1); 
 
+                // (FIX F3) ตรวจสอบการยืนนิ่ง
+                Location currentLocation = player.getLocation();
+                Location lastLocation = lastKnownLocation.get(player.getUniqueId());
+                boolean isIdle = false;
+                if (lastLocation != null &&
+                    currentLocation.getBlockX() == lastLocation.getBlockX() &&
+                    currentLocation.getBlockY() == lastLocation.getBlockY() &&
+                    currentLocation.getBlockZ() == lastLocation.getBlockZ()) {
+                    isIdle = true;
+                }
+                lastKnownLocation.put(player.getUniqueId(), currentLocation);
+                
+                // ถ้ายืนนิ่ง จะไม่ลดค่าน้ำ
+                if (!isIdle) {
+                    decreaseThirst(player, 1);
+                }
+                
                 // --- Apply Effects ---
                 int currentThirst = getThirst(player.getUniqueId());
                 if (currentThirst <= 20) {
-                    // Dehydrated
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 30, 0)); // 1.5 sec
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 30, 0));
                 } else if (currentThirst <= 50) {
-                    // Thirsty
-                    // --- FIX ---
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 110, 0)); // 5.5 sec <--- แก้ไขจาก SLOW
-                    // --- END FIX ---
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 210, 0)); // (เพิ่มเวลาเป็น 10.5 วิ)
                 }
             }
-        }, 0L, 100L);
+        }, 0L, 200L); // (FIX F3)
     }
 }

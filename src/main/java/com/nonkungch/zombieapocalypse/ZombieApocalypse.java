@@ -18,7 +18,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionData;
-import org.bukkit.potion.PotionEffectType; // ตรวจสอบว่า import นี้มี
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 import java.util.Arrays;
@@ -42,6 +42,9 @@ public class ZombieApocalypse extends JavaPlugin {
     // --- (P7: Safe Zones) ---
     private SafeZoneManager safeZoneManager;
 
+    // --- (P8: Stats) ---
+    private PlayerStatsManager playerStatsManager;
+
     // --- Recipe Keys ---
     private NamespacedKey bandageKey, antidoteKey, dirtyWaterKey, batKey, knifeKey, zoneDefinerKey, zoneCoreKey;
 
@@ -57,6 +60,7 @@ public class ZombieApocalypse extends JavaPlugin {
         // --- 1. Initialize Managers ---
         thirstManager = new ThirstManager(this);
         safeZoneManager = new SafeZoneManager(this);
+        playerStatsManager = new PlayerStatsManager(this); // <--- เพิ่ม P8
 
         // --- 2. Create Items & Recipes ---
         createWaterItems(); // P4
@@ -65,7 +69,7 @@ public class ZombieApocalypse extends JavaPlugin {
         createAntidoteRecipe(); // P3
         createBaseballBatRecipe(); // P6
         createCombatKnifeRecipe(); // P6
-        createSafeZoneItems(); // P7 (with updated recipe)
+        createSafeZoneItems(); // P7
         
         // --- 3. Register Listeners ---
         getServer().getPluginManager().registerEvents(new ZombieListener(this), this); // P1, P5
@@ -74,17 +78,21 @@ public class ZombieApocalypse extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ThirstListener(this), this); // P4
         getServer().getPluginManager().registerEvents(new WaterListener(this), this); // P4
         getServer().getPluginManager().registerEvents(new SafeZoneListener(this), this); // P7
+        getServer().getPluginManager().registerEvents(new PlayerStatsListener(this), this); // <--- เพิ่ม P8
 
         // --- 4. Register Commands ---
         getCommand("safezone").setExecutor(new SafeZoneCommands(this)); // P7
+        getCommand("zinfo").setExecutor(new StatsCommand(this)); // <--- เพิ่ม P8
+        getCommand("zupgrade").setExecutor(new StatsCommand(this)); // <--- เพิ่ม P8
         // (cureme command is handled in this file)
 
         // --- 5. Start Tasks ---
         new InfectionTask(this).runTaskTimer(this, 0L, 20L); // P2 Task (1 sec)
-        thirstManager.startThirstTask(); // P4 Task (5 sec)
+        thirstManager.startThirstTask(); // P4 Task (แก้ไขแล้ว)
         safeZoneManager.startZoneEffectTask(); // P7 Task (2 sec)
+        playerStatsManager.startRegenTask(); // <--- เพิ่ม P8
 
-        getLogger().info("ZombieApocalypse Plugin (v1.0) Enabled!");
+        getLogger().info("ZombieApocalypse Plugin (v1.1) Enabled!");
     }
 
     @Override
@@ -109,6 +117,7 @@ public class ZombieApocalypse extends JavaPlugin {
     public Map<UUID, Long> getInfectedPlayers() { return infectedPlayers; }
     public ThirstManager getThirstManager() { return thirstManager; }
     public SafeZoneManager getSafeZoneManager() { return safeZoneManager; }
+    public PlayerStatsManager getPlayerStatsManager() { return playerStatsManager; } // <--- เพิ่ม P8
     public void addBoomer(UUID zombieId) { boomers.add(zombieId); }
     public void removeBoomer(UUID zombieId) { boomers.remove(zombieId); }
     public boolean isBoomer(UUID zombieId) { return boomers.contains(zombieId); }
@@ -119,12 +128,10 @@ public class ZombieApocalypse extends JavaPlugin {
             infectedPlayers.remove(player.getUniqueId());
             player.sendMessage(ChatColor.GREEN + "คุณรู้สึกดีขึ้นแล้ว! การติดเชื้อหายไปแล้ว");
             // Clear infection-related effects
-            player.removePotionEffect(org.bukkit.potion.PotionEffectType.POISON);
-            player.removePotionEffect(org.bukkit.potion.PotionEffectType.HUNGER);
-            player.removePotionEffect(org.bukkit.potion.PotionEffectType.WEAKNESS);
-            // --- FIX ---
-            player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS); // <--- แก้ไขจาก SLOW
-            // --- END FIX ---
+            player.removePotionEffect(PotionEffectType.POISON);
+            player.removePotionEffect(PotionEffectType.HUNGER);
+            player.removePotionEffect(PotionEffectType.WEAKNESS);
+            player.removePotionEffect(PotionEffectType.SLOWNESS); // (แก้ไขแล้ว)
         } else {
             player.sendMessage(ChatColor.GRAY + "คุณไม่ได้ติดเชื้ออยู่");
         }
@@ -200,7 +207,6 @@ public class ZombieApocalypse extends JavaPlugin {
     
     private void createWaterRecipes() {
         dirtyWaterKey = new NamespacedKey(this, "purified_water");
-        // We check the input item in the WaterListener, so Material.POTION is fine
         FurnaceRecipe recipe = new FurnaceRecipe(dirtyWaterKey, PURIFIED_WATER_ITEM, Material.POTION, 0.1f, 100);
         Bukkit.addRecipe(recipe);
     }
@@ -267,12 +273,8 @@ public class ZombieApocalypse extends JavaPlugin {
         zoneDefinerKey = new NamespacedKey(this, "zone_definer");
         ShapedRecipe definerRecipe = new ShapedRecipe(zoneDefinerKey, ZONE_DEFINER_ITEM);
         
-        // --- (สูตรใหม่ตามที่คุณขอ) ---
-        definerRecipe.shape(
-            " G ", // G = Gold Ingot
-            " I ", // I = Iron Ingot
-            " S "  // S = Stick
-        );
+        // (สูตรที่แก้ไขแล้ว)
+        definerRecipe.shape( " G ", " I ", " S " );
         definerRecipe.setIngredient('G', Material.GOLD_INGOT);
         definerRecipe.setIngredient('I', Material.IRON_INGOT);
         definerRecipe.setIngredient('S', Material.STICK);

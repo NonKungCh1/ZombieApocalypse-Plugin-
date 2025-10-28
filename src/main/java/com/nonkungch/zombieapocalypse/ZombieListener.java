@@ -9,11 +9,8 @@ import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
-// --- FIX ---
-// ลบ import CombustReason
-import org.bukkit.event.entity.EntityCombustByBlockEvent; // เพิ่ม
-import org.bukkit.event.entity.EntityCombustByEntityEvent; // เพิ่ม
-// --- END FIX ---
+import org.bukkit.event.entity.EntityCombustByBlockEvent; // (แก้ไข)
+import org.bukkit.event.entity.EntityCombustByEntityEvent; // (แก้ไข)
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.attribute.Attribute;
@@ -80,32 +77,24 @@ public class ZombieListener implements Listener {
         }
     }
 
-    // --- (P1) Sun Proofing ---
-    // --- FIX ---
+    // --- (P1) Sun Proofing (แก้ไข) ---
     @EventHandler
     public void onZombieBurn(EntityCombustEvent event) {
         
-        // เราจะกันเฉพาะ ZOMBIE ธรรมดา (ไม่รวม Husk หรือ Drowned)
         if (event.getEntityType() != EntityType.ZOMBIE) {
             return;
         }
-
-        // ตรวจสอบว่าการเผาไหม้ "ไม่ได้" เกิดจากบล็อก (เช่น ไฟ, ลาวา)
+        // (กันการเผาไหม้จาก ไฟ/ลาวา)
         if (event instanceof EntityCombustByBlockEvent) {
             return;
         }
-        
-        // ตรวจสอบว่าการเผาไหม้ "ไม่ได้" เกิดจาก Entity อื่น (เช่น Blaze)
+        // (กันการเผาไหม้จาก Entity อื่น)
         if (event instanceof EntityCombustByEntityEvent) {
             return;
         }
-
-        // ถ้ามันเป็น EntityCombustEvent ธรรมดาๆ (ไม่ใช่ 2 อันบน)
-        // มันก็คือ "แสงแดด"
+        // ถ้าเป็นการเผาไหม้แบบปกติ (แสงแดด)
         event.setCancelled(true);
     }
-    // --- END FIX ---
-
 
     // --- (P5) Boomer Explosion ---
     @EventHandler
