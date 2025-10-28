@@ -18,6 +18,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionData;
+import org.bukkit.potion.PotionEffectType; // ตรวจสอบว่า import นี้มี
 import org.bukkit.potion.PotionType;
 
 import java.util.Arrays;
@@ -121,7 +122,9 @@ public class ZombieApocalypse extends JavaPlugin {
             player.removePotionEffect(org.bukkit.potion.PotionEffectType.POISON);
             player.removePotionEffect(org.bukkit.potion.PotionEffectType.HUNGER);
             player.removePotionEffect(org.bukkit.potion.PotionEffectType.WEAKNESS);
-            player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOW);
+            // --- FIX ---
+            player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS); // <--- แก้ไขจาก SLOW
+            // --- END FIX ---
         } else {
             player.sendMessage(ChatColor.GRAY + "คุณไม่ได้ติดเชื้ออยู่");
         }
@@ -234,8 +237,6 @@ public class ZombieApocalypse extends JavaPlugin {
         meta.setUnbreakable(true);
 
         AttributeModifier damage = new AttributeModifier(UUID.randomUUID(), "generic.attackDamage", 4.0, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND);
-        // Base speed is 1.6, adding 3.2 makes it 4.8 (fast!)
-        // Note: Attribute modifiers for speed are weird. This value *adds* to the base -4.
         AttributeModifier speed = new AttributeModifier(UUID.randomUUID(), "generic.attackSpeed", 3.2, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND);
         meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, damage);
         meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED, speed);
@@ -268,14 +269,13 @@ public class ZombieApocalypse extends JavaPlugin {
         
         // --- (สูตรใหม่ตามที่คุณขอ) ---
         definerRecipe.shape(
-            " G ", // G = Gold Ingot (พัวทอง)
-            " I ", // I = Iron Ingot (เหล็ก)
-            " S "  // S = Stick (แท่งไม้)
+            " G ", // G = Gold Ingot
+            " I ", // I = Iron Ingot
+            " S "  // S = Stick
         );
         definerRecipe.setIngredient('G', Material.GOLD_INGOT);
         definerRecipe.setIngredient('I', Material.IRON_INGOT);
         definerRecipe.setIngredient('S', Material.STICK);
-        // -----------------------------
         Bukkit.addRecipe(definerRecipe);
 
         // 2. "แกนพลังงานเซฟโซน" (Safe Zone Core)

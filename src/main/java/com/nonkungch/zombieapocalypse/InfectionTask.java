@@ -58,7 +58,9 @@ public class InfectionTask extends BukkitRunnable {
                 // Stage 1: Infected
                 player.sendMessage(ChatColor.YELLOW + "คุณรู้สึกไม่ค่อยสบายตัวและหิวโหย...");
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 40, 0));
+                // --- FIX ---
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0)); // <--- แก้ไขจาก SLOW
+                // --- END FIX ---
             } else {
                 // Incubation Period (0-60 sec)
                 if(secondsElapsed % 10 == 0) {

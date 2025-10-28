@@ -115,7 +115,9 @@ public class ThirstManager {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 30, 0)); // 1.5 sec
                 } else if (currentThirst <= 50) {
                     // Thirsty
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 110, 0)); // 5.5 sec
+                    // --- FIX ---
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 110, 0)); // 5.5 sec <--- แก้ไขจาก SLOW
+                    // --- END FIX ---
                 }
             }
         }, 0L, 100L);

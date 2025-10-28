@@ -9,7 +9,11 @@ import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
-import org.bukkit.event.entity.EntityCombustEvent.CombustReason;
+// --- FIX ---
+// ลบ import CombustReason
+import org.bukkit.event.entity.EntityCombustByBlockEvent; // เพิ่ม
+import org.bukkit.event.entity.EntityCombustByEntityEvent; // เพิ่ม
+// --- END FIX ---
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.attribute.Attribute;
@@ -73,19 +77,35 @@ public class ZombieListener implements Listener {
                 zombie.setCustomNameVisible(true);
                 plugin.addBoomer(zombie.getUniqueId());
             }
-            // else: 80% chance to be a normal (buffed) zombie
         }
     }
 
     // --- (P1) Sun Proofing ---
+    // --- FIX ---
     @EventHandler
     public void onZombieBurn(EntityCombustEvent event) {
-        if (event.getEntityType() == EntityType.ZOMBIE) {
-            if (event.getCombustReason() == CombustReason.SUNLIGHT) {
-                event.setCancelled(true);
-            }
+        
+        // เราจะกันเฉพาะ ZOMBIE ธรรมดา (ไม่รวม Husk หรือ Drowned)
+        if (event.getEntityType() != EntityType.ZOMBIE) {
+            return;
         }
+
+        // ตรวจสอบว่าการเผาไหม้ "ไม่ได้" เกิดจากบล็อก (เช่น ไฟ, ลาวา)
+        if (event instanceof EntityCombustByBlockEvent) {
+            return;
+        }
+        
+        // ตรวจสอบว่าการเผาไหม้ "ไม่ได้" เกิดจาก Entity อื่น (เช่น Blaze)
+        if (event instanceof EntityCombustByEntityEvent) {
+            return;
+        }
+
+        // ถ้ามันเป็น EntityCombustEvent ธรรมดาๆ (ไม่ใช่ 2 อันบน)
+        // มันก็คือ "แสงแดด"
+        event.setCancelled(true);
     }
+    // --- END FIX ---
+
 
     // --- (P5) Boomer Explosion ---
     @EventHandler
@@ -95,16 +115,13 @@ public class ZombieListener implements Listener {
             plugin.removeBoomer(event.getEntity().getUniqueId());
             Location loc = event.getEntity().getLocation();
             
-            // 1. Explode
-            loc.getWorld().createExplosion(loc, 3.0f, false, true); // Power 3, no fire, breaks blocks
+            loc.getWorld().createExplosion(loc, 3.0f, false, true);
             
-            // 2. Infect nearby
             for (Entity nearby : loc.getWorld().getNearbyEntities(loc, 6, 6, 6)) {
                 if (nearby instanceof Player) {
                     Player player = (Player) nearby;
                     
                     if (!plugin.getInfectedPlayers().containsKey(player.getUniqueId())) {
-                        // Force infect (P2)
                         plugin.getInfectedPlayers().put(player.getUniqueId(), System.currentTimeMillis());
                         player.sendMessage(ChatColor.DARK_RED + "คุณโดนสารคัดหลั่งของ Boomer! คุณติดเชื้อแล้ว!");
                     }
