@@ -30,7 +30,7 @@ import java.util.UUID;
 
 public class ZombieApocalypse extends JavaPlugin {
 
-    // (ตัวแปรทั้งหมดเหมือนเดิม)
+    // (ตัวแปรทั้งหมด)
     private Map<UUID, Long> infectedPlayers = new HashMap<>();
     private ThirstManager thirstManager;
     private Set<UUID> boomers = new HashSet<>();
@@ -45,17 +45,21 @@ public class ZombieApocalypse extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // (โค้ด onEnable ทั้งหมดเหมือนเดิม)
         thirstManager = new ThirstManager(this);
         safeZoneManager = new SafeZoneManager(this);
         playerStatsManager = new PlayerStatsManager(this);
+
+        // --- 2. สร้างสูตรคราฟทั้งหมด ---
+        // (ไฟล์ที่แล้วผมลืมใส่ 4 อันนี้กลับเข้ามา)
         createWaterItems();
         createWaterRecipes();
-        createBandageRecipe();
-        createAntidoteRecipe();
-        createBaseballBatRecipe();
-        createCombatKnifeRecipe();
-        createSafeZoneItems(); // <--- เมธอดนี้จะถูกอัปเดต
+        createBandageRecipe(); // <--- คืนกลับมาแล้ว
+        createAntidoteRecipe(); // <--- คืนกลับมาแล้ว
+        createBaseballBatRecipe(); // <--- คืนกลับมาแล้ว (และแก้ไขแล้ว)
+        createCombatKnifeRecipe(); // <--- คืนกลับมาแล้ว
+        createSafeZoneItems(); // (สูตร Core แก้ไขแล้ว)
+        // ---------------------------------
+        
         getServer().getPluginManager().registerEvents(new ZombieListener(this), this);
         getServer().getPluginManager().registerEvents(new InfectionListener(this), this);
         getServer().getPluginManager().registerEvents(new ItemListener(this), this);
@@ -75,7 +79,7 @@ public class ZombieApocalypse extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // (โค้ด onDisable ทั้งหมดเหมือนเดิม)
+        // (ลบสูตรคราฟทั้งหมด)
         if (bandageKey != null) Bukkit.removeRecipe(bandageKey);
         if (antidoteKey != null) Bukkit.removeRecipe(antidoteKey);
         if (dirtyWaterKey != null) Bukkit.removeRecipe(dirtyWaterKey);
@@ -88,7 +92,7 @@ public class ZombieApocalypse extends JavaPlugin {
         getLogger().info("ZombieApocalypse Plugin Disabled.");
     }
 
-    // (Getters และเมธอดอื่นๆ ทั้งหมดเหมือนเดิม)
+    // (Getters และ curePlayer, onCommand[cureme] เหมือนเดิม)
     public Map<UUID, Long> getInfectedPlayers() { return infectedPlayers; }
     public ThirstManager getThirstManager() { return thirstManager; }
     public SafeZoneManager getSafeZoneManager() { return safeZoneManager; }
@@ -96,20 +100,144 @@ public class ZombieApocalypse extends JavaPlugin {
     public void addBoomer(UUID zombieId) { boomers.add(zombieId); }
     public void removeBoomer(UUID zombieId) { boomers.remove(zombieId); }
     public boolean isBoomer(UUID zombieId) { return boomers.contains(zombieId); }
-    public void curePlayer(Player player) { /* ... โค้ดเดิม ... */ }
+    public void curePlayer(Player player) {
+        if (infectedPlayers.containsKey(player.getUniqueId())) {
+            infectedPlayers.remove(player.getUniqueId());
+            player.sendMessage(ChatColor.GREEN + "คุณรู้สึกดีขึ้นแล้ว! การติดเชื้อหายไปแล้ว");
+            player.removePotionEffect(PotionEffectType.POISON);
+            player.removePotionEffect(PotionEffectType.HUNGER);
+            player.removePotionEffect(PotionEffectType.WEAKNESS);
+            player.removePotionEffect(PotionEffectType.SLOWNESS);
+        } else {
+            player.sendMessage(ChatColor.GRAY + "คุณไม่ได้ติดเชื้ออยู่");
+        }
+    }
     @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) { /* ... โค้ดเดิม ... */ return false; }
-    private void createBandageRecipe() { /* ... โค้ดเดิม ... */ }
-    private void createAntidoteRecipe() { /* ... โค้ดเดิม ... */ }
-    private void createWaterItems() { /* ... โค้ดเดิม ... */ }
-    private void createWaterRecipes() { /* ... โค้ดเดิม ... */ }
-    private void createBaseballBatRecipe() { /* ... โค้ดเดิม ... */ }
-    private void createCombatKnifeRecipe() { /* ... โค้ดเดิม ... */ }
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (cmd.getName().equalsIgnoreCase("cureme")) {
+            if (sender instanceof Player) {
+                Player player = (Player) sender;
+                curePlayer(player);
+                return true;
+            } else {
+                sender.sendMessage("This command can only be run by a player.");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // --- (P3) ผ้าพันแผล ---
+    private void createBandageRecipe() {
+        ItemStack bandageItem = new ItemStack(Material.PAPER, 1);
+        ItemMeta meta = bandageItem.getItemMeta();
+        meta.setDisplayName(ChatColor.WHITE + "" + ChatColor.BOLD + "ผ้าพันแผล");
+        meta.setLore(Arrays.asList(ChatColor.GRAY + "ใช้สำหรับห้ามเลือดและรักษาบาดแผล", ChatColor.BLUE + "ฟื้นฟู 2 หัวใจ"));
+        meta.setCustomModelData(1001); 
+        bandageItem.setItemMeta(meta);
+
+        bandageKey = new NamespacedKey(this, "bandage");
+        ShapelessRecipe recipe = new ShapelessRecipe(bandageKey, bandageItem);
+        recipe.addIngredient(3, Material.STRING);
+        recipe.addIngredient(1, Material.PAPER);
+        Bukkit.addRecipe(recipe);
+    }
+
+    // --- (P3) ยาต้านเชื้อ ---
+    private void createAntidoteRecipe() {
+        ItemStack antidoteItem = new ItemStack(Material.POTION, 1); 
+        ItemMeta meta = antidoteItem.getItemMeta();
+        meta.setDisplayName(ChatColor.GREEN + "" + ChatColor.BOLD + "ยาต้านเชื้อ");
+        meta.setLore(Arrays.asList(ChatColor.AQUA + "ใช้รักษาการติดเชื้อซอมบี้โดยเฉพาะ", ChatColor.DARK_RED + "(ไม่สามารถรักษาบาดแผลทั่วไปได้)"));
+        meta.setCustomModelData(1002);
+        antidoteItem.setItemMeta(meta);
+
+        antidoteKey = new NamespacedKey(this, "antidote");
+        ShapedRecipe recipe = new ShapedRecipe(antidoteKey, antidoteItem);
+        recipe.shape(" N ", " A ", " B ");
+        recipe.setIngredient('N', Material.NETHER_WART);
+        recipe.setIngredient('A', Material.GOLDEN_APPLE);
+        recipe.setIngredient('B', Material.GLASS_BOTTLE);
+        Bukkit.addRecipe(recipe);
+    }
+
+    // --- (P4) ระบบน้ำ ---
+    private void createWaterItems() {
+        DIRTY_WATER_ITEM = new ItemStack(Material.POTION, 1);
+        PotionMeta dirtyMeta = (PotionMeta) DIRTY_WATER_ITEM.getItemMeta();
+        dirtyMeta.setBasePotionData(new PotionData(PotionType.WATER));
+        dirtyMeta.setDisplayName(ChatColor.DARK_GREEN + "น้ำสกปรก");
+        dirtyMeta.setLore(Arrays.asList(ChatColor.GRAY + "น้ำจากแหล่งน้ำธรรมชาติ", ChatColor.RED + "ควรนำไปต้มก่อนดื่ม"));
+        dirtyMeta.setCustomModelData(1003);
+        DIRTY_WATER_ITEM.setItemMeta(dirtyMeta);
+
+        PURIFIED_WATER_ITEM = new ItemStack(Material.POTION, 1);
+        PotionMeta cleanMeta = (PotionMeta) PURIFIED_WATER_ITEM.getItemMeta();
+        cleanMeta.setBasePotionData(new PotionData(PotionType.WATER));
+        cleanMeta.setDisplayName(ChatColor.AQUA + "น้ำสะอาด");
+        cleanMeta.setLore(Arrays.asList(ChatColor.GRAY + "น้ำที่ผ่านการต้มแล้ว", ChatColor.BLUE + "ปลอดภัยสำหรับดื่ม"));
+        cleanMeta.setCustomModelData(1004);
+        PURIFIED_WATER_ITEM.setItemMeta(cleanMeta);
+    }
+    private void createWaterRecipes() {
+        dirtyWaterKey = new NamespacedKey(this, "purified_water");
+        FurnaceRecipe recipe = new FurnaceRecipe(dirtyWaterKey, PURIFIED_WATER_ITEM, Material.POTION, 0.1f, 100);
+        Bukkit.addRecipe(recipe);
+    }
+
+    // --- (P6) ไม้เบสบอล (แก้ไข) ---
+    private void createBaseballBatRecipe() {
+        ItemStack batItem = new ItemStack(Material.WOODEN_SWORD);
+        ItemMeta meta = batItem.getItemMeta();
+        meta.setDisplayName(ChatColor.WHITE + "ไม้เบสบอล");
+        meta.setLore(Arrays.asList(ChatColor.GRAY + "อาวุธทื่อๆ สำหรับคุมฝูงชน", ChatColor.YELLOW + "พลังผลักสูง"));
+        meta.setCustomModelData(1005);
+        meta.setUnbreakable(true);
+
+        AttributeModifier damage = new AttributeModifier(UUID.randomUUID(), "generic.attackDamage", 5.0, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND);
+        AttributeModifier knockback = new AttributeModifier(UUID.randomUUID(), "generic.attackKnockback", 1.0, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND);
+        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, damage);
+        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_KNOCKBACK, knockback);
+        batItem.setItemMeta(meta);
+
+        batKey = new NamespacedKey(this, "baseball_bat");
+        ShapedRecipe recipe = new ShapedRecipe(batKey, batItem);
+        recipe.shape("L", "L", "S"); // L = Log, S = Stick
+        
+        // --- (FIX) เปลี่ยนจาก Plank เป็น Log ---
+        recipe.setIngredient('L', Material.OAK_LOG); 
+        // --- END FIX ---
+        
+        recipe.setIngredient('S', Material.STICK);
+        Bukkit.addRecipe(recipe);
+    }
+
+    // --- (P6) มีดคอมแบท ---
+    private void createCombatKnifeRecipe() {
+        ItemStack knifeItem = new ItemStack(Material.IRON_SWORD);
+        ItemMeta meta = knifeItem.getItemMeta();
+        meta.setDisplayName(ChatColor.AQUA + "มีดคอมแบท");
+        meta.setLore(Arrays.asList(ChatColor.GRAY + "อาวุธระยะประชิด ความเร็วสูง", ChatColor.YELLOW + "ความเร็วโจมตีสูงมาก"));
+        meta.setCustomModelData(1006);
+        meta.setUnbreakable(true);
+
+        AttributeModifier damage = new AttributeModifier(UUID.randomUUID(), "generic.attackDamage", 4.0, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND);
+        AttributeModifier speed = new AttributeModifier(UUID.randomUUID(), "generic.attackSpeed", 3.2, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlot.HAND);
+        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE, damage);
+        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED, speed);
+        knifeItem.setItemMeta(meta);
+
+        knifeKey = new NamespacedKey(this, "combat_knife");
+        ShapedRecipe recipe = new ShapedRecipe(knifeKey, knifeItem);
+        recipe.shape("I", "S");
+        recipe.setIngredient('I', Material.IRON_INGOT);
+        recipe.setIngredient('S', Material.STICK);
+        Bukkit.addRecipe(recipe);
+    }
     
-    // --- (P7) อัปเดตเมธอดนี้ ---
+    // --- (P7) ระบบเซฟโซน (สูตรแก้ไขแล้ว) ---
     private void createSafeZoneItems() {
-        // 1. "ไม้เท้ากำหนดเขต" (Zone Definer)
-        // (ส่วนนี้เหมือนเดิม - คราฟจาก Gold+Iron+Stick)
+        // 1. "ไม้เท้ากำหนดเขต"
         ZONE_DEFINER_ITEM = new ItemStack(Material.BLAZE_ROD);
         ItemMeta definerMeta = ZONE_DEFINER_ITEM.getItemMeta();
         definerMeta.setDisplayName(ChatColor.GOLD + "ไม้เท้ากำหนดเขต");
@@ -130,8 +258,7 @@ public class ZombieApocalypse extends JavaPlugin {
         Bukkit.addRecipe(definerRecipe);
 
 
-        // --- (FIX) 2. "แกนพลังงานเซฟโซน" (Safe Zone Core) ---
-        // (ผลลัพธ์ยังเป็น Beacon เหมือนเดิม)
+        // 2. "แกนพลังงานเซฟโซน"
         ZONE_CORE_ITEM = new ItemStack(Material.BEACON);
         ItemMeta coreMeta = ZONE_CORE_ITEM.getItemMeta();
         coreMeta.setDisplayName(ChatColor.AQUA + "" + ChatColor.BOLD + "แกนพลังงานเซฟโซน");
@@ -145,7 +272,7 @@ public class ZombieApocalypse extends JavaPlugin {
         zoneCoreKey = new NamespacedKey(this, "zone_core");
         ShapedRecipe coreRecipe = new ShapedRecipe(zoneCoreKey, ZONE_CORE_ITEM);
         
-        // (สูตรคราฟใหม่ตามที่คุณยืนยัน)
+        // (สูตรคราฟใหม่ที่ยืนยัน)
         coreRecipe.shape(
             "IOI", // I = Iron Block, O = Obsidian
             "ODO", // D = Diamond Block
@@ -154,8 +281,6 @@ public class ZombieApocalypse extends JavaPlugin {
         coreRecipe.setIngredient('I', Material.IRON_BLOCK);
         coreRecipe.setIngredient('O', Material.OBSIDIAN);
         coreRecipe.setIngredient('D', Material.DIAMOND_BLOCK);
-        // --- END FIX ---
-        
         Bukkit.addRecipe(coreRecipe);
     }
 }
