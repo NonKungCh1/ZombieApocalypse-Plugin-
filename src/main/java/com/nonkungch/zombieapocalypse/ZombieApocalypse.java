@@ -20,6 +20,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
+// (เพิ่ม)
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,6 +44,12 @@ public class ZombieApocalypse extends JavaPlugin {
     public static ItemStack ZONE_DEFINER_ITEM;
     public static ItemStack ZONE_CORE_ITEM;
 
+    // --- (เพิ่มใหม่) ระบบ Moon Phase ---
+    public enum MoonPhase { NORMAL, RED_MOON, BLUE_MOON }
+    private MoonPhase currentMoonPhase = MoonPhase.NORMAL;
+    private int currentDay = 0;
+    // --- (จบส่วนเพิ่มใหม่) ---
+
 
     @Override
     public void onEnable() {
@@ -50,15 +58,13 @@ public class ZombieApocalypse extends JavaPlugin {
         playerStatsManager = new PlayerStatsManager(this);
 
         // --- 2. สร้างสูตรคราฟทั้งหมด ---
-        // (ไฟล์ที่แล้วผมลืมใส่ 4 อันนี้กลับเข้ามา)
         createWaterItems();
         createWaterRecipes();
-        createBandageRecipe(); // <--- คืนกลับมาแล้ว
-        createAntidoteRecipe(); // <--- คืนกลับมาแล้ว
-        createBaseballBatRecipe(); // <--- คืนกลับมาแล้ว (และแก้ไขแล้ว)
-        createCombatKnifeRecipe(); // <--- คืนกลับมาแล้ว
-        createSafeZoneItems(); // (สูตร Core แก้ไขแล้ว)
-        // ---------------------------------
+        createBandageRecipe();
+        createAntidoteRecipe();
+        createBaseballBatRecipe();
+        createCombatKnifeRecipe();
+        createSafeZoneItems();
         
         getServer().getPluginManager().registerEvents(new ZombieListener(this), this);
         getServer().getPluginManager().registerEvents(new InfectionListener(this), this);
@@ -74,6 +80,11 @@ public class ZombieApocalypse extends JavaPlugin {
         thirstManager.startThirstTask();
         safeZoneManager.startZoneEffectTask();
         playerStatsManager.startRegenTask();
+        
+        // --- (เพิ่มใหม่) ---
+        startGameDayTask(); // เริ่ม Task นับวัน
+        // --- (จบส่วนเพิ่มใหม่) ---
+        
         getLogger().info("ZombieApocalypse Plugin (v1.1) Enabled!");
     }
 
@@ -91,6 +102,43 @@ public class ZombieApocalypse extends JavaPlugin {
         if (safeZoneManager != null) safeZoneManager.removeAllSafeZones();
         getLogger().info("ZombieApocalypse Plugin Disabled.");
     }
+    
+    // --- (เพิ่มใหม่) เมธอดสำหรับ Moon Phase ---
+    public MoonPhase getCurrentMoonPhase() {
+        return currentMoonPhase;
+    }
+
+    private void startGameDayTask() {
+        // 1 วันในเกม = 24000 Ticks
+        long gameDayTicks = 24000L; 
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                currentDay++; // เพิ่มวัน
+                
+                // ตรวจสอบทุกๆ 30 วัน (พระจันทร์สีฟ้า)
+                if (currentDay % 30 == 0) {
+                    currentMoonPhase = MoonPhase.BLUE_MOON;
+                    Bukkit.broadcastMessage(ChatColor.BLUE + "" + ChatColor.BOLD + "พระจันทร์สีฟ้าปรากฏขึ้น... ซอมบี้อ่อนแอลงอย่างประหลาด!");
+                } 
+                // ตรวจสอบทุกๆ 10 วัน (พระจันทร์แดง)
+                else if (currentDay % 10 == 0) {
+                    currentMoonPhase = MoonPhase.RED_MOON;
+                    Bukkit.broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "พระจันทร์สีเลือดปรากฏขึ้น... ซอมบี้ก้าวร้าวมากขึ้น!");
+                } 
+                // วันปกติ
+                else {
+                    // ประกาศถ้าเพิ่งจบ Moon Phase
+                    if (currentMoonPhase != MoonPhase.NORMAL) {
+                         Bukkit.broadcastMessage(ChatColor.YELLOW + "ดวงจันทร์กลับสู่สภาวะปกติ...");
+                    }
+                    currentMoonPhase = MoonPhase.NORMAL;
+                }
+            }
+        }.runTaskTimer(this, 0L, gameDayTicks); // เริ่มทันที และรันทุก 1 วัน
+    }
+    // --- (จบส่วนเพิ่มใหม่) ---
 
     // (Getters และ curePlayer, onCommand[cureme] เหมือนเดิม)
     public Map<UUID, Long> getInfectedPlayers() { return infectedPlayers; }
@@ -204,10 +252,7 @@ public class ZombieApocalypse extends JavaPlugin {
         ShapedRecipe recipe = new ShapedRecipe(batKey, batItem);
         recipe.shape("L", "L", "S"); // L = Log, S = Stick
         
-        // --- (FIX) เปลี่ยนจาก Plank เป็น Log ---
         recipe.setIngredient('L', Material.OAK_LOG); 
-        // --- END FIX ---
-        
         recipe.setIngredient('S', Material.STICK);
         Bukkit.addRecipe(recipe);
     }
@@ -272,7 +317,6 @@ public class ZombieApocalypse extends JavaPlugin {
         zoneCoreKey = new NamespacedKey(this, "zone_core");
         ShapedRecipe coreRecipe = new ShapedRecipe(zoneCoreKey, ZONE_CORE_ITEM);
         
-        // (สูตรคราฟใหม่ที่ยืนยัน)
         coreRecipe.shape(
             "IOI", // I = Iron Block, O = Obsidian
             "ODO", // D = Diamond Block
