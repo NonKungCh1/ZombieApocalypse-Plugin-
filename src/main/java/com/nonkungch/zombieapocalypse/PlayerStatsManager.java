@@ -9,6 +9,13 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+// --- (เพิ่ม Import 4 บรรทัดนี้) ---
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import java.io.File;
+import java.io.IOException;
+// --- (จบส่วน Import) ---
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -17,7 +24,7 @@ public class PlayerStatsManager {
 
     private ZombieApocalypse plugin;
     
-    // คลาสสำหรับเก็บข้อมูล
+    // คลาสสำหรับเก็บข้อมูล (เหมือนเดิม)
     public class PlayerStats {
         int healthLevel = 0;
         int speedLevel = 0;
@@ -40,16 +47,117 @@ public class PlayerStatsManager {
 
     private Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();
 
+    // --- (เพิ่มตัวแปร 2 บรรทัดนี้) ---
+    private File playerDataFile;
+    private FileConfiguration playerDataConfig;
+
     public PlayerStatsManager(ZombieApocalypse plugin) {
         this.plugin = plugin;
+        // --- (เพิ่ม 2 บรรทัดนี้) ---
+        setupDataFile(); // เรียกใช้เมธอดสร้าง/โหลดไฟล์
+        loadAllPlayerDataFromFile(); // โหลดข้อมูลผู้เล่นทั้งหมดจากไฟล์มาเก็บใน Map
+    }
+    
+    // --- (เมธอดใหม่: สำหรับจัดการไฟล์ YML) ---
+    private void setupDataFile() {
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdir();
+        }
+        playerDataFile = new File(plugin.getDataFolder(), "playerdata.yml");
+        if (!playerDataFile.exists()) {
+            try {
+                playerDataFile.createNewFile();
+            } catch (IOException e) {
+                plugin.getLogger().severe("Could not create playerdata.yml!");
+                e.printStackTrace();
+            }
+        }
+        playerDataConfig = YamlConfiguration.loadConfiguration(playerDataFile);
     }
 
-    // --- โหลด/ล้าง ข้อมูล ---
+    // --- (เมธอดใหม่: โหลดข้อมูลจากไฟล์มาใส่ Map ตอนเริ่มปลั๊กอิน) ---
+    private void loadAllPlayerDataFromFile() {
+        if (playerDataConfig == null) return;
+        
+        for (String uuidString : playerDataConfig.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(uuidString);
+                String path = uuidString + ".";
+                
+                PlayerStats stats = new PlayerStats();
+                stats.healthLevel = playerDataConfig.getInt(path + "healthLevel", 0);
+                stats.speedLevel = playerDataConfig.getInt(path + "speedLevel", 0);
+                stats.damageLevel = playerDataConfig.getInt(path + "damageLevel", 0);
+                stats.regenLevel = playerDataConfig.getInt(path + "regenLevel", 0);
+                stats.upgradePoints = playerDataConfig.getInt(path + "upgradePoints", 0);
+                
+                playerStatsMap.put(uuid, stats);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to load stats for UUID: " + uuidString);
+            }
+        }
+        plugin.getLogger().info("Loaded stats for " + playerStatsMap.size() + " players.");
+    }
+    
+    // --- (เมธอดใหม่: เซฟข้อมูลผู้เล่นคนเดียวลงไฟล์) ---
+    public void savePlayerData(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerStats stats = playerStatsMap.get(uuid);
+        
+        if (stats == null) return; // ไม่มีข้อมูลให้เซฟ
+
+        String path = uuid.toString() + ".";
+        playerDataConfig.set(path + "healthLevel", stats.healthLevel);
+        playerDataConfig.set(path + "speedLevel", stats.speedLevel);
+        playerDataConfig.set(path + "damageLevel", stats.damageLevel);
+        playerDataConfig.set(path + "regenLevel", stats.regenLevel);
+        playerDataConfig.set(path + "upgradePoints", stats.upgradePoints);
+
+        try {
+            playerDataConfig.save(playerDataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save player data for " + player.getName());
+            e.printStackTrace();
+        }
+    }
+    
+    // --- (เมธอดใหม่: เซฟข้อมูลผู้เล่น *ทุกคน* ตอนปิดเซิร์ฟ) ---
+    public void saveAllPlayerData() {
+        if (playerDataConfig == null || playerStatsMap.isEmpty()) return;
+        
+        for (UUID uuid : playerStatsMap.keySet()) {
+             PlayerStats stats = playerStatsMap.get(uuid);
+             String path = uuid.toString() + ".";
+             playerDataConfig.set(path + "healthLevel", stats.healthLevel);
+             playerDataConfig.set(path + "speedLevel", stats.speedLevel);
+             playerDataConfig.set(path + "damageLevel", stats.damageLevel);
+             playerDataConfig.set(path + "regenLevel", stats.regenLevel);
+             playerDataConfig.set(path + "upgradePoints", stats.upgradePoints);
+        }
+        
+        try {
+            playerDataConfig.save(playerDataFile);
+            plugin.getLogger().info("Saved all player stats (" + playerStatsMap.size() + " entries).");
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save all player data!");
+            e.printStackTrace();
+        }
+    }
+
+    // --- (แก้ไข) โหลด/ล้าง ข้อมูล ---
     
     public void loadPlayer(Player player) {
-        // (ในอนาคต ตรงนี้คือส่วนที่โหลดจากไฟล์)
-        PlayerStats stats = playerStatsMap.getOrDefault(player.getUniqueId(), new PlayerStats());
-        playerStatsMap.put(player.getUniqueId(), stats);
+        // (แก้ไข) ดึงข้อมูลจาก Map (ที่โหลดจากไฟล์มาแล้ว)
+        PlayerStats stats = playerStatsMap.get(player.getUniqueId());
+        
+        // ถ้าไม่มีข้อมูลใน Map (ผู้เล่นใหม่)
+        if (stats == null) {
+            stats = new PlayerStats();
+            playerStatsMap.put(player.getUniqueId(), stats); // สร้างโปรไฟล์ใหม่ใน Memory
+            plugin.getLogger().info("Created new stats profile for " + player.getName());
+        } else {
+            plugin.getLogger().info("Loaded stats for " + player.getName());
+        }
         
         applyStats(player);
         // เติมเลือดให้เต็มเมื่อเข้าเกม
@@ -57,15 +165,19 @@ public class PlayerStatsManager {
     }
 
     public void unloadPlayer(Player player) {
-        // (ในอนาคต ตรงนี้คือส่วนที่เซฟลงไฟล์)
+        // (แก้ไข) เปลี่ยนจาก "ลบ" เป็น "เซฟ"
+        savePlayerData(player); // <--- เซฟข้อมูลลงไฟล์ playerdata.yml
+        
+        // ลบออกจาก Map เพื่อประหยัด Memory (เมื่อเขาออกเกมไปแล้ว)
         playerStatsMap.remove(player.getUniqueId());
+        plugin.getLogger().info("Saved and unloaded stats for " + player.getName());
     }
 
     public PlayerStats getPlayerStats(Player player) {
         return playerStatsMap.get(player.getUniqueId());
     }
 
-    // --- ใช้ Stats กับ Player ---
+    // --- (โค้ดส่วนที่เหลือเหมือนเดิมทุกประการ) ---
     
     public void applyStats(Player player) {
         PlayerStats stats = getPlayerStats(player);
@@ -80,8 +192,6 @@ public class PlayerStatsManager {
         if (attackDamage != null) attackDamage.setBaseValue(stats.getAttackDamage());
     }
     
-    // --- ระบบแต้ม ---
-    
     public void addUpgradePoint(Player player, int amount) {
         PlayerStats stats = getPlayerStats(player);
         if (stats == null) return;
@@ -91,8 +201,6 @@ public class PlayerStatsManager {
         player.sendMessage(ChatColor.GREEN + "พิมพ์ " + ChatColor.AQUA + "/zinfo" + ChatColor.GREEN + " เพื่อดูสถานะ");
     }
 
-    // --- ระบบอัปเกรด ---
-    
     public boolean upgradeStat(Player player, String statName) {
         PlayerStats stats = getPlayerStats(player);
         if (stats == null) return false;
@@ -155,7 +263,6 @@ public class PlayerStatsManager {
          }
     }
 
-    // --- Task สำหรับ Regen (A2) ---
     public void startRegenTask() {
         new BukkitRunnable() {
             @Override
@@ -168,7 +275,6 @@ public class PlayerStatsManager {
                         continue;
                     }
                     
-                    // Level 1 = Regen 0 (I)
                     player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 120, stats.regenLevel - 1, true, false));
                 }
             }

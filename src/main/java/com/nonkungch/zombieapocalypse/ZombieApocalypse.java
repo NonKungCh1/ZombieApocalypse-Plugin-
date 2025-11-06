@@ -20,7 +20,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
-// (เพิ่ม)
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
@@ -37,25 +36,27 @@ public class ZombieApocalypse extends JavaPlugin {
     private ThirstManager thirstManager;
     private Set<UUID> boomers = new HashSet<>();
     private SafeZoneManager safeZoneManager;
-    private PlayerStatsManager playerStatsManager;
+    private PlayerStatsManager playerStatsManager; // <--- ตัวจัดการ Stats
     private NamespacedKey bandageKey, antidoteKey, dirtyWaterKey, batKey, knifeKey, zoneDefinerKey, zoneCoreKey;
     public static ItemStack DIRTY_WATER_ITEM;
     public static ItemStack PURIFIED_WATER_ITEM;
     public static ItemStack ZONE_DEFINER_ITEM;
     public static ItemStack ZONE_CORE_ITEM;
 
-    // --- (เพิ่มใหม่) ระบบ Moon Phase ---
+    // --- (ระบบ Moon Phase) ---
     public enum MoonPhase { NORMAL, RED_MOON, BLUE_MOON }
     private MoonPhase currentMoonPhase = MoonPhase.NORMAL;
     private int currentDay = 0;
-    // --- (จบส่วนเพิ่มใหม่) ---
+    // --- (จบส่วน Moon Phase) ---
 
 
     @Override
     public void onEnable() {
+        // --- (แก้ไข) ลำดับการโหลดสำคัญ ---
+        // ต้องโหลด PlayerStatsManager ก่อน เพื่อให้ Listener อื่นๆ เรียกใช้ได้
         thirstManager = new ThirstManager(this);
         safeZoneManager = new SafeZoneManager(this);
-        playerStatsManager = new PlayerStatsManager(this);
+        playerStatsManager = new PlayerStatsManager(this); // <--- สร้าง Manager ที่นี่
 
         // --- 2. สร้างสูตรคราฟทั้งหมด ---
         createWaterItems();
@@ -66,26 +67,29 @@ public class ZombieApocalypse extends JavaPlugin {
         createCombatKnifeRecipe();
         createSafeZoneItems();
         
+        // --- (แก้ไข) ลงทะเบียน Listener ทั้งหมด ---
         getServer().getPluginManager().registerEvents(new ZombieListener(this), this);
         getServer().getPluginManager().registerEvents(new InfectionListener(this), this);
         getServer().getPluginManager().registerEvents(new ItemListener(this), this);
         getServer().getPluginManager().registerEvents(new ThirstListener(this), this);
         getServer().getPluginManager().registerEvents(new WaterListener(this), this);
         getServer().getPluginManager().registerEvents(new SafeZoneListener(this), this);
-        getServer().getPluginManager().registerEvents(new PlayerStatsListener(this), this);
+        getServer().getPluginManager().registerEvents(new PlayerStatsListener(this), this); // <--- ลงทะเบียน Listener ของคุณ
+        
+        // --- ลงทะเบียน Commands ---
         getCommand("safezone").setExecutor(new SafeZoneCommands(this));
         getCommand("zinfo").setExecutor(new StatsCommand(this));
         getCommand("zupgrade").setExecutor(new StatsCommand(this));
+        
+        // --- เริ่ม Tasks ---
         new InfectionTask(this).runTaskTimer(this, 0L, 20L);
         thirstManager.startThirstTask();
         safeZoneManager.startZoneEffectTask();
-        playerStatsManager.startRegenTask();
+        playerStatsManager.startRegenTask(); // <--- ย้ายมาเรียกจาก Manager
+        startGameDayTask(); // (Task ของ Moon Phase)
         
-        // --- (เพิ่มใหม่) ---
-        startGameDayTask(); // เริ่ม Task นับวัน
-        // --- (จบส่วนเพิ่มใหม่) ---
-        
-        getLogger().info("ZombieApocalypse Plugin (v1.1) Enabled!");
+        // (แก้ไข) เปลี่ยนชื่อเวอร์ชัน
+        getLogger().info("ZombieApocalypse Plugin (v1.2 - Save/Load Fixed) Enabled!");
     }
 
     @Override
@@ -98,56 +102,60 @@ public class ZombieApocalypse extends JavaPlugin {
         if (knifeKey != null) Bukkit.removeRecipe(knifeKey);
         if (zoneDefinerKey != null) Bukkit.removeRecipe(zoneDefinerKey);
         if (zoneCoreKey != null) Bukkit.removeRecipe(zoneCoreKey);
+        
+        // (ปิด Tasks/BossBars)
         if (thirstManager != null) thirstManager.removeAllBossBars();
         if (safeZoneManager != null) safeZoneManager.removeAllSafeZones();
+        
+        // --- (เพิ่ม 1 บรรทัดนี้) ---
+        // บันทึกข้อมูลผู้เล่นที่ยังออนไลน์อยู่ทั้งหมดลงไฟล์ ก่อนเซิร์ฟปิด
+        if (playerStatsManager != null) {
+            playerStatsManager.saveAllPlayerData();
+        }
+        // --- (จบส่วนที่เพิ่ม) ---
+        
         getLogger().info("ZombieApocalypse Plugin Disabled.");
     }
     
-    // --- (เพิ่มใหม่) เมธอดสำหรับ Moon Phase ---
+    // --- (เมธอด Moon Phase) ---
     public MoonPhase getCurrentMoonPhase() {
         return currentMoonPhase;
     }
 
     private void startGameDayTask() {
-        // 1 วันในเกม = 24000 Ticks
         long gameDayTicks = 24000L; 
-
         new BukkitRunnable() {
             @Override
             public void run() {
-                currentDay++; // เพิ่มวัน
-                
-                // ตรวจสอบทุกๆ 30 วัน (พระจันทร์สีฟ้า)
+                currentDay++; 
                 if (currentDay % 30 == 0) {
                     currentMoonPhase = MoonPhase.BLUE_MOON;
                     Bukkit.broadcastMessage(ChatColor.BLUE + "" + ChatColor.BOLD + "พระจันทร์สีฟ้าปรากฏขึ้น... ซอมบี้อ่อนแอลงอย่างประหลาด!");
                 } 
-                // ตรวจสอบทุกๆ 10 วัน (พระจันทร์แดง)
                 else if (currentDay % 10 == 0) {
                     currentMoonPhase = MoonPhase.RED_MOON;
                     Bukkit.broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "พระจันทร์สีเลือดปรากฏขึ้น... ซอมบี้ก้าวร้าวมากขึ้น!");
                 } 
-                // วันปกติ
                 else {
-                    // ประกาศถ้าเพิ่งจบ Moon Phase
                     if (currentMoonPhase != MoonPhase.NORMAL) {
                          Bukkit.broadcastMessage(ChatColor.YELLOW + "ดวงจันทร์กลับสู่สภาวะปกติ...");
                     }
                     currentMoonPhase = MoonPhase.NORMAL;
                 }
             }
-        }.runTaskTimer(this, 0L, gameDayTicks); // เริ่มทันที และรันทุก 1 วัน
+        }.runTaskTimer(this, 0L, gameDayTicks);
     }
-    // --- (จบส่วนเพิ่มใหม่) ---
+    // --- (จบส่วน Moon Phase) ---
 
     // (Getters และ curePlayer, onCommand[cureme] เหมือนเดิม)
     public Map<UUID, Long> getInfectedPlayers() { return infectedPlayers; }
     public ThirstManager getThirstManager() { return thirstManager; }
     public SafeZoneManager getSafeZoneManager() { return safeZoneManager; }
-    public PlayerStatsManager getPlayerStatsManager() { return playerStatsManager; }
+    public PlayerStatsManager getPlayerStatsManager() { return playerStatsManager; } // <--- Getter สำคัญ
     public void addBoomer(UUID zombieId) { boomers.add(zombieId); }
     public void removeBoomer(UUID zombieId) { boomers.remove(zombieId); }
     public boolean isBoomer(UUID zombieId) { return boomers.contains(zombieId); }
+    
     public void curePlayer(Player player) {
         if (infectedPlayers.containsKey(player.getUniqueId())) {
             infectedPlayers.remove(player.getUniqueId());
@@ -160,6 +168,7 @@ public class ZombieApocalypse extends JavaPlugin {
             player.sendMessage(ChatColor.GRAY + "คุณไม่ได้ติดเชื้ออยู่");
         }
     }
+    
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (cmd.getName().equalsIgnoreCase("cureme")) {
@@ -175,6 +184,7 @@ public class ZombieApocalypse extends JavaPlugin {
         return false;
     }
 
+    // (โค้ดส่วน สูตรคราฟ ทั้งหมด เหมือนเดิม)
     // --- (P3) ผ้าพันแผล ---
     private void createBandageRecipe() {
         ItemStack bandageItem = new ItemStack(Material.PAPER, 1);
